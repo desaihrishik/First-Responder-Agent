@@ -1,0 +1,47 @@
+# Python
+venv/
+.venv/
+.venv310/
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS/editor
+.DS_Store
+.vscode/
+
+# Large data
+data/
+datasets/
+*.csv
+*.parquet
+*.db
+*.duckdb
+*.sqlite
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.bin
+*.npy
+*.npz
+
+# Logs
+*.log
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+build/
+
+# IDE
+.idea/
+
+# Env files
+.env
+frontend/.env

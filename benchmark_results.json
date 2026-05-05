@@ -1,0 +1,16 @@
+{
+  "total_queries": 100,
+  "successes": 100,
+  "failures": 0,
+  "success_rate": 100.0,
+  "latency_ms": {
+    "min": 2436,
+    "p50": 3952,
+    "p95": 5046,
+    "p99": 27722,
+    "max": 27722,
+    "mean": 4179.1,
+    "stdev": 2450.5
+  },
+  "estimated_tokens_per_sec": 5.3
+}
