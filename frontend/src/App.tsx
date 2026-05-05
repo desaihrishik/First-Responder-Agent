@@ -710,6 +710,18 @@ export default function App() {
                 </div>
               </div>
             )}
+            {(nearby.hospitals?.length || 0) === 0 &&
+             (nearby.hydrants?.length || 0) === 0 &&
+             (nearby.facilities?.length || 0) === 0 && (
+              <div className="fade-up fade-up-4" style={{
+                background: "var(--surface-alt)", borderRadius: "var(--radius)",
+                border: "1px solid var(--border)", padding: "14px 16px",
+                color: "var(--text-secondary)", fontSize: 12.5,
+              }}>
+                Nearest response resources are not available for this address yet.
+                Try a nearby address or run a full data ingest to load hydrants/facilities.
+              </div>
+            )}
           </div>
 
           {/* Timing footer */}
@@ -779,6 +791,35 @@ export default function App() {
                   fontSize: 10, color: "var(--text-muted)",
                   fontFamily: "var(--font-mono)",
                 }}>{lookupResult.query_ms}ms</div>
+              </div>
+            );
+          })()}
+
+          {(() => {
+            const hasPrimaryData =
+              (lookupResult.dob_violations?.length || 0) +
+              (lookupResult.ecb_violations?.length || 0) +
+              (lookupResult.hpd_violations?.length || 0) +
+              (lookupResult.hpd_complaints?.length || 0) +
+              (lookupResult.service_requests_311?.length || 0) +
+              (lookupResult.fire_incidents?.length || 0) +
+              (lookupResult.ems_incidents?.length || 0) +
+              (lookupResult.nypd_complaints?.length || 0) +
+              (lookupResult.fire_inspections?.length || 0) +
+              (lookupResult.elevators?.length || 0);
+            if (hasPrimaryData > 0) return null;
+            return (
+              <div className="fade-up" style={{
+                background: "var(--surface-alt)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "12px 14px",
+                marginBottom: 14,
+                color: "var(--text-secondary)",
+                fontSize: 12.5,
+              }}>
+                No direct violation/incident records were found for this property in the currently loaded datasets.
+                Nearby facilities and risk context are shown below.
               </div>
             );
           })()}
@@ -864,6 +905,49 @@ export default function App() {
               { key: "speed", label: "Speed" },
               { key: "capacity", label: "Cap" },
             ]} />
+          <DataTable title="Nearby Hospitals" icon="HOSP"
+            rows={lookupResult.hospitals}
+            cols={[
+              { key: "facility_name", label: "Facility", w: "40%" },
+              { key: "address", label: "Address", w: "35%" },
+              { key: "borough", label: "Borough" },
+              { key: "dist_mi", label: "Miles" },
+            ]} />
+          <DataTable title="Nearby Facilities" icon="FAC"
+            rows={lookupResult.facilities}
+            cols={[
+              { key: "facname", label: "Name", w: "35%" },
+              { key: "factype", label: "Type", w: "30%" },
+              { key: "address", label: "Address", w: "25%" },
+              { key: "dist_ft", label: "Feet" },
+            ]} />
+          <DataTable title="Nearby Hydrants" icon="HYD"
+            rows={lookupResult.hydrants}
+            cols={[
+              { key: "unitid", label: "Unit" },
+              { key: "borough", label: "Borough" },
+              { key: "dist_ft", label: "Feet" },
+            ]} />
+          <DataTable title="Risk Details" icon="RISK"
+            rows={lookupResult.risk_score ? [lookupResult.risk_score] : []}
+            cols={[
+              { key: "overall_risk_score", label: "Risk" },
+              { key: "active_dob_violations", label: "DOB" },
+              { key: "active_ecb_violations", label: "ECB" },
+              { key: "active_hpd_class_c", label: "HPD-C" },
+              { key: "prior_fire_incidents", label: "Fire" },
+              { key: "prior_ems_incidents", label: "EMS" },
+              { key: "nearest_hospital_mi", label: "Hosp Mi" },
+            ]} />
+          <DataTable title="Owner Portfolio" icon="OWN"
+            rows={lookupResult.owner_portfolio ? [lookupResult.owner_portfolio] : []}
+            cols={[
+              { key: "owner_name", label: "Owner", w: "36%" },
+              { key: "total_buildings", label: "Buildings" },
+              { key: "total_open_violations", label: "Open Viol." },
+              { key: "avg_violations_per_building", label: "Avg Viol." },
+              { key: "total_ecb_balance_due", label: "ECB Balance" },
+            ]} />
         </div>
       )}
 
@@ -922,3 +1006,4 @@ export default function App() {
     </div>
   );
 }
+
