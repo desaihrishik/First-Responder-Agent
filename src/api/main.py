@@ -30,6 +30,10 @@ log = logging.getLogger("api")
 OLLAMA_BASE = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 NEMOTRON = os.getenv("NEMOTRON_MODEL", "nemotron-mini")
 LLAVA = os.getenv("LLAVA_MODEL", "llava:13b")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL_TEXT = os.getenv("OPENAI_MODEL_TEXT", "gpt-4.1-mini")
+OPENAI_MODEL_VISION = os.getenv("OPENAI_MODEL_VISION", "gpt-4.1-mini")
 
 _con = None
 _http: Optional[httpx.AsyncClient] = None
@@ -205,6 +209,39 @@ def get_nearby_resources(con, lat, lon):
 
 async def call_llava(image_b64: str) -> str | None:
     if not _http: return None
+    if OPENAI_API_KEY:
+        try:
+            r = await _http.post(
+                f"{OPENAI_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": OPENAI_MODEL_VISION,
+                    "temperature": 0.2,
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Describe this scene for 911 dispatch. Focus on visible hazards, fire/smoke, injuries, structural damage, number of people, vehicles. Under 80 words."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
+                            }
+                        ]
+                    }],
+                    "max_tokens": 140,
+                },
+                timeout=20.0,
+            )
+            if r.status_code == 200:
+                return r.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+            log.warning(f"OpenAI vision failed: {r.status_code} {r.text[:180]}")
+        except Exception as e:
+            log.warning(f"OpenAI vision failed: {e}")
     try:
         r = await _http.post(f"{OLLAMA_BASE}/api/chat", json={
             "model": LLAVA, "stream": False,
@@ -239,6 +276,33 @@ ALWAYS include the 'send' field with specific unit types."""
     if context: parts.append(f"BUILDING HISTORY AT THIS LOCATION:\n{context}")
     if vision: parts.append(f"SCENE FROM PHOTO:\n{vision}")
     parts.append(f"INCIDENT REPORT:\n{text}\n\nReturn ONLY the JSON.")
+
+    if OPENAI_API_KEY:
+        try:
+            r = await _http.post(
+                f"{OPENAI_BASE_URL}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {OPENAI_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": OPENAI_MODEL_TEXT,
+                    "temperature": 0.2,
+                    "response_format": {"type": "json_object"},
+                    "messages": [
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": "\n\n".join(parts)},
+                    ],
+                    "max_tokens": 500,
+                },
+                timeout=35.0,
+            )
+            if r.status_code == 200:
+                raw = r.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+                return json.loads(raw) if raw else _fallback(text)
+            log.warning(f"OpenAI triage failed: {r.status_code} {r.text[:180]}")
+        except Exception as e:
+            log.warning(f"OpenAI triage failed: {e}")
 
     try:
         r = await _http.post(f"{OLLAMA_BASE}/api/chat", json={
@@ -378,12 +442,15 @@ async def lifespan(app: FastAPI):
         for t in tables:
             try: log.info(f"  {t}: {_con.execute(f'SELECT COUNT(*) FROM {t}').fetchone()[0]:,}")
             except: pass
-    # Check Ollama
-    try:
-        r = await _http.get(f"{OLLAMA_BASE}/api/version", timeout=3)
-        log.info(f"Ollama: {'connected' if r.status_code==200 else 'not responding'}")
-    except:
-        log.warning("Ollama not running — triage will use keyword fallback")
+    if OPENAI_API_KEY:
+        log.info(f"OpenAI enabled: text={OPENAI_MODEL_TEXT}, vision={OPENAI_MODEL_VISION}")
+    else:
+        # Check Ollama
+        try:
+            r = await _http.get(f"{OLLAMA_BASE}/api/version", timeout=3)
+            log.info(f"Ollama: {'connected' if r.status_code==200 else 'not responding'}")
+        except:
+            log.warning("Ollama not running - triage will use keyword fallback")
     yield
     if _con: _con.close()
     if _http: await _http.aclose()
@@ -464,9 +531,10 @@ async def search(q: str, borough: str = None, limit: int = 10):
 async def health():
     if not _con: return {"status":"no_db","path":str(DB_PATH)}
     ollama = False
+    openai = bool(OPENAI_API_KEY)
     try: ollama = (await _http.get(f"{OLLAMA_BASE}/api/version",timeout=3)).status_code==200
     except: pass
-    return {"status":"ok","ollama":ollama,"tables":{r[0]:_q(_con,f"SELECT COUNT(*) AS n FROM {r[0]}")[0]["n"] for r in _con.execute("SHOW TABLES").fetchall()}}
+    return {"status":"ok","ollama":ollama,"openai":openai,"tables":{r[0]:_q(_con,f"SELECT COUNT(*) AS n FROM {r[0]}")[0]["n"] for r in _con.execute("SHOW TABLES").fetchall()}}
 
 
 if __name__ == "__main__":
