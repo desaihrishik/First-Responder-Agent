@@ -1,45 +1,88 @@
-# NYC Dispatch Intelligence — Location Lookup
+# NYC First Responder Dispatch Intelligence
 
-Enter any NYC address → get a complete risk report from 27 datasets.
+AI-assisted incident triage and building risk intelligence for New York City addresses, powered by public safety and property datasets.
 
-## What it does
+## Hackathon Context
 
-Type an address. The system finds the building by BBL/BIN/address/lat-lon, then fans out across every NYC dataset and returns:
+This project was built as part of an NVIDIA hackathon and was run on NVIDIA's GN100 workstation environment during development and demo validation.
 
-- **Building profile** (PLUTO): year built, floors, class, owner, lot area
-- **Risk score** (computed live): weighted composite from violations + incidents
-- **DOB violations**: active building code violations
-- **ECB violations**: environmental control board penalties and balances
-- **HPD violations**: housing code violations (Class A/B/C)
-- **HPD complaints**: tenant complaints and status
-- **311 requests**: service requests matched by BBL or address
-- **Fire incidents**: FDNY dispatch records near the building
-- **Fire company responses**: detailed fire response with actions taken
-- **EMS incidents**: ambulance calls in the vicinity
-- **NYPD complaints**: crime reports near the building
-- **Fire inspections**: FDNY Bureau of Fire Prevention results
-- **Elevators**: device status, capacity, floors served
-- **Nearby hospitals**: closest hospitals with distance
-- **Nearby facilities**: schools, fire stations, precincts
+## What This Project Does
 
-## Stack
+Given an NYC address, BBL/BIN, or coordinates, the system resolves the building and returns a structured intelligence report across incident, violations, and infrastructure sources.
 
-- **Backend**: FastAPI + DuckDB (that's it — no ChromaDB, no ML models, no pyarrow)
-- **Frontend**: React + TypeScript + Vite
-- **Data**: 27 NYC Open Data parquet files (~7GB total)
+Key outputs include:
 
-## Run
+- Building profile (PLUTO): year built, floors, class, owner, lot area
+- Computed risk score from violations and incident signals
+- DOB violations and ECB penalties
+- HPD violations and complaints
+- 311 complaints and service requests
+- FDNY fire incidents and fire company response history
+- EMS incidents and response context
+- NYPD nearby complaints
+- Fire prevention inspection data
+- Elevator device details
+- Nearby facilities and hospitals
 
-```bash
-# 1. Ingest data (use your existing ingest.py --all)
-python scripts/ingest.py --all
+## Tech Stack
 
-# 2. Start API
-pip install -r requirements.txt
-python -m uvicorn src.main:app --host 0.0.0.0 --port 8000
+- Backend: FastAPI + DuckDB + optional Ollama model integration
+- Frontend: React + TypeScript + Vite
+- Data: 27 NYC Open Data datasets ingested into local DuckDB
 
-# 3. Start frontend
-cd frontend && npm install && npm run dev
+## Repository Structure
+
+```text
+.
++-- src/api/            # FastAPI app and triage/lookup endpoints
++-- src/cpp/            # CUDA/C++ kernels and parser components
++-- scripts/            # ingestion, benchmark, validation utilities
++-- frontend/           # Vite + React UI
++-- demo/               # sample scenarios
++-- tests/              # parser tests
 ```
 
-Open http://localhost:5173
+## Local Setup
+
+Use Python 3.10 for best dependency compatibility on Windows.
+
+```bash
+# from repo root
+py -3.10 -m venv .venv
+.venv\Scripts\activate
+
+pip install -r requirements.txt
+```
+
+## Run Locally
+
+1. Ingest datasets (downloads + load + risk + embeddings):
+
+```bash
+python scripts/ingest.py --all
+```
+
+2. Start backend API:
+
+```bash
+python -m uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+3. Start frontend (new terminal):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Endpoints
+
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:8000`
+- Health check: `http://localhost:8000/health`
+
+## Notes
+
+- Initial ingestion is large and can take significant time and disk space.
+- If Ollama is not running, the API falls back to rule-based triage behavior.
